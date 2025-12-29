@@ -1,0 +1,193 @@
+﻿@using WeatherReportGenerator.Web.ViewModels
+@model List<CountryViewModel>
+
+@{
+    ViewData["Title"] = "Weather Report";
+}
+
+<div class="weather-card mt-5">
+
+    <div class="text-center mb-4">
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-geo-alt-fill"></i> Your City Weather Forecast
+        </h3>
+        <p class="text-muted mb-0">Check the upcoming weather for the next ten days</p>
+    </div>
+
+    <form id="weatherForm">
+        <div id="globalLoader" class="text-center mt-4" style="display:none;">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2" id="loaderText">Please wait...</p>
+        </div>
+        <div id="errorResult" class="mt-4"></div>
+
+        <div class="mb-3">
+            <label for="country" class="form-label">Select Country</label>
+            <select id="country" class="form-select" required>
+                <option value="">Select Country</option>
+                @foreach (var country in Model)
+                {
+                    <option value="@country.Name">@country.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <label for="city" class="form-label">City</label>
+            <input type="text" id="city" class="form-control"
+                   value="Islamabad" placeholder="Enter city name" required />
+        </div>
+
+        <div class="d-grid">
+            <button type="submit" class="btn text-dark" style="background-color:#d3d3d3;">
+                Search
+            </button>
+        </div>
+    </form>
+</div>
+
+<div id="weatherResult" class="mt-4"></div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+    <script>
+        function showLoader(message) {
+            $("#loaderText").text(message || "Please wait...");
+            $("#globalLoader").show();
+            $("button").prop("disabled", true);
+        }
+
+        function hideLoader() {
+            $("#globalLoader").hide();
+            $("button").prop("disabled", false);
+        }
+
+                       function handleErrorResponse(xhr) {
+            try {
+                var response = xhr.responseJSON;
+                if (response?.redirectUrl) {
+                    var url = response.redirectUrl + "?message=" + encodeURIComponent(response.message || "");
+                    window.location.href = url;
+                } else {
+                    alert("An unexpected error occurred.");
+                }
+            } catch (e) {
+                alert("An unexpected error occurred.");
+            }
+        }
+
+
+
+        $(document).ready(function () {
+            $("#weatherForm").submit(function (e) {
+                e.preventDefault();
+
+                const city = $("#city").val();
+                const country = $("#country").val();
+                $("#errorResult").empty();
+                $("#weatherResult").empty();
+                if (!city || !country) {
+                    $("#errorResult").html('<div class="alert alert-warning">City and Country are required.</div>');
+                    return;
+                }
+
+                showLoader("Fetching weather data...");
+
+                $.ajax({
+                    url: "/Weather/GetWeatherData",
+                    type: "GET",
+                    data: { city, country },
+                    success: function (weatherArray) {
+                        hideLoader();
+
+                        if (!weatherArray || weatherArray.length === 0) {
+                            $("#weatherResult").html('<div class="alert alert-warning">No weather data found.</div>');
+                            return;
+                        }
+
+                        const options = { weekday: "long", year: "numeric", month: "short", day: "numeric" };
+                        let html = `
+                            <div class="mb-3 text-end">
+                                <button id="downloadPdf" class="btn text-dark" style="background-color:#d3d3d3;">
+                                    <i class="bi bi-cloud-download"></i> Download PDF
+                                </button>
+                            </div>
+                            <div class="row g-4">
+                        `;
+
+                        weatherArray.forEach(w => {
+                            const formattedDate = new Date(w.date).toLocaleDateString("en-US", options);
+                            html += `
+                                <div class="col-12">
+                                    <div class="card shadow rounded-3">
+                                        <div class="card-header d-flex justify-content-between align-items-center"
+                                             style="background-color:#d3d3d3;">
+                                            <span class="fw-bold">${formattedDate}</span>
+                                            ${w.icon ? `<img src="${w.icon}" style="width:40px;height:40px;" />` : ""}
+                                        </div>
+                                        <div class="card-body">
+                                            <p><strong>Temperature:</strong> ${w.maxtemp_c} °C / ${w.mintemp_c} °C</p>
+                                            <p><strong>Condition:</strong> ${w.condition}</p>
+                                            <p><strong>Humidity:</strong> ${w.humidity} %</p>
+                                            <p><strong>Wind Speed:</strong> ${w.wind_kph} km/h</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+
+                        html += "</div>";
+                        $("#weatherResult").html(html);
+                    },
+                    error: handleErrorResponse
+                });
+            });
+            $(document).on("click", "#downloadPdf", function () {
+
+                $("#errorResult").empty();
+                showLoader("Generating PDF, please wait...");
+
+                $.ajax({
+                    url: "/Weather/DownloadPdf",
+                    type: "GET",
+                    data: {
+                        city: $("#city").val(),
+                        country: $("#country").val()
+                    },
+                    xhrFields: { responseType: "blob" },
+                    success: function (data, status, xhr) {
+                        hideLoader();
+
+                        var contentType = xhr.getResponseHeader("content-type");
+                        if (contentType && contentType.indexOf("application/json") > -1) {
+                            var reader = new FileReader();
+                            reader.onload = function () {
+                                var json = JSON.parse(reader.result);
+                                if (json.redirectUrl) {
+                                    window.location.href = json.redirectUrl + "?message=" + encodeURIComponent(json.message || "");
+                                } else {
+                                    alert("An unexpected error occurred.");
+                                }
+                            };
+                            reader.readAsText(data);
+                            return;
+                        }
+
+                        const blob = new Blob([data], { type: "application/pdf" });
+                        const url = window.URL.createObjectURL(blob);
+
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "Weather-Forecast.pdf";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    },
+                    error: handleErrorResponse
+                });
+            });
+        });
+    </script>
+}

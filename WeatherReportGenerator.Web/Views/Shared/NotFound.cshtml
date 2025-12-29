@@ -1,0 +1,10 @@
+﻿@{
+    ViewData["Title"] = "Not Found";
+    var message = ViewData["ErrorMessage"] as string ?? "Resource not found.";
+}
+
+<div class="container mt-5">
+    <h1 class="text-warning">404 - Not Found</h1>
+    <p>@message</p>
+    <a href="/" class="btn btn-primary mt-3">Go Back</a>
+</div>

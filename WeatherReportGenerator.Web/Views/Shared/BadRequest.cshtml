@@ -1,0 +1,10 @@
+﻿@{
+    ViewData["Title"] = "Bad Request";
+    var message = ViewData["ErrorMessage"] as string ?? "Invalid request.";
+}
+
+<div class="container mt-5">
+    <h1 class="text-danger">400 - Bad Request</h1>
+    <p>@message</p>
+    <a href="/" class="btn btn-primary mt-3">Go Back</a>
+</div>
