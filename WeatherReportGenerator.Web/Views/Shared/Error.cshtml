@@ -1,0 +1,20 @@
+﻿@model WeatherReportGenerator.Web.ViewModels.ErrorViewModel
+
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="d-flex justify-content-center align-items-center vh-100">
+    <div class="text-center">
+        <div class="card shadow p-5">
+            <h1 class="display-4 text-danger mb-3">Oops!</h1>
+            <h4 class="text-danger mb-4">@Model.ErrorMessage</h4>
+            <p class="text-danger mb-4">
+                Please try again or contact support if the problem persists.
+            </p>
+            <a asp-action="Index" asp-controller="Weather" class="btn text-dark btn-lg" style="background-color: #d3d3d3;">
+                Go Back to Home
+            </a>
+        </div>
+    </div>
+</div>
